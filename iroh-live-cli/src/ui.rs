@@ -258,6 +258,15 @@ pub fn shutdown_live_blocking(live: &Live) {
     });
 }
 
+/// Finishes a local publication before shutting its transport down.
+pub fn shutdown_publish_blocking(live: &Live, broadcast: &mut LocalBroadcast) {
+    let live = live.clone();
+    tokio::runtime::Handle::current().block_on(async move {
+        broadcast.shutdown().await;
+        live.shutdown().await;
+    });
+}
+
 /// The window options every media window here wants.
 ///
 /// eframe's wgpu renderer, configured the way `moq-media-egui`'s video

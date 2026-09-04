@@ -139,7 +139,7 @@ fn wait_for_ctrl_c(rt: &tokio::runtime::Runtime, live: Live, broadcast: LocalBro
     println!("press Ctrl+C to stop");
     rt.block_on(async move {
         tokio::signal::ctrl_c().await?;
-        broadcast.finish();
+        broadcast.finish().await;
         live.shutdown().await;
         Ok(())
     })
@@ -234,7 +234,7 @@ mod preview {
 
         fn on_exit(&mut self) {
             info!("exit");
-            crate::ui::shutdown_live_blocking(&self.live);
+            crate::ui::shutdown_publish_blocking(&self.live, &mut self.broadcast);
         }
     }
 

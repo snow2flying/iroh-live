@@ -218,14 +218,20 @@ impl RemoteBroadcast {
             trace!(broadcast = %name, catalog = %json, "first catalog");
         }
         let catalog = Watchable::new(CatalogSnapshot(Arc::new(first)));
+        let shutdown = CancellationToken::new();
 
         let task = {
             let catalog = catalog.clone();
             let name = name.clone();
+            let shutdown = shutdown.clone();
             spawn(
                 async move {
                     loop {
-                        match consumer.next().await {
+                        let next = tokio::select! {
+                            next = consumer.next() => next,
+                            () = shutdown.cancelled() => break,
+                        };
+                        match next {
                             Ok(Some(next)) => {
                                 // At trace, because a catalog is the first thing
                                 // to look at when a publisher and a subscriber
@@ -260,7 +266,7 @@ impl RemoteBroadcast {
                 stats: SubscribeStats::default(),
                 sync: Sync::with_jitter(policy.jitter),
                 policy: Mutex::new(policy),
-                shutdown: CancellationToken::new(),
+                shutdown,
                 _catalog_task: AbortOnDropHandle::new(task),
             }),
         })

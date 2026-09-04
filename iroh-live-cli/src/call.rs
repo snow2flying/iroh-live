@@ -431,7 +431,7 @@ mod window {
             if let Some(pending) = self.pending.take() {
                 pending.discard();
             }
-            crate::ui::shutdown_live_blocking(&self.live);
+            crate::ui::shutdown_publish_blocking(&self.live, &mut self.broadcast);
         }
     }
 

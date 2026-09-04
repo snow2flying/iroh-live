@@ -264,7 +264,7 @@ impl Live {
     /// closes the iroh [`Endpoint`] unconditionally. [`Live`] is [`Clone`] and
     /// every clone shares one endpoint, so this shuts down all of them.
     pub async fn shutdown(&self) {
-        self.moq.shutdown();
+        self.moq.shutdown().await;
         if let Some(router) = self.router.as_ref()
             && let Err(err) = router.shutdown().await
         {

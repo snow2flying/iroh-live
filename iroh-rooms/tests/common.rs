@@ -77,7 +77,7 @@ impl Peer {
     /// disconnect-detection tests rely on to trigger `PeerLeft` on the other
     /// side.
     pub(crate) async fn shutdown(self) {
-        self.moq.shutdown();
+        self.moq.shutdown().await;
         self.router.shutdown().await.expect("router task panicked");
         self.endpoint.close().await;
     }

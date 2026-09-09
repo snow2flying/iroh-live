@@ -7,7 +7,7 @@
 /test-media
 /logs
 cross/sysroot-aarch64/
-
+/.agents*
 # Recordings `irl record` drops in the working directory.
 *.mp4
 *.mkv

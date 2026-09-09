@@ -85,8 +85,9 @@ mod_module_files = "deny"
 # and a moq-net fix that aborts subscriptions when a session shuts down. They
 # live on `Frando/moq@iroh-live-2`, one commit per prospective PR, rebuilt on
 # upstream `main` on 2026-09-09 with everything already merged dropped.
-# `plans/v2/moq-upstream.md` tracks each one. `Cargo.lock` pins the exact
-# revision, so a checkout builds what CI built even after a rebuild.
+# `git log --oneline main..iroh-live-2` on that fork is the list. `Cargo.lock`
+# pins the exact revision, so a checkout builds what CI built even after a
+# rebuild.
 #
 # Deleting this block is the whole fix once the commits land in a moq release.
 [patch.crates-io]

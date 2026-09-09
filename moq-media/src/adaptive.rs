@@ -403,7 +403,7 @@ pub fn evaluate(
         // encoder sends a quarter to a half of what it advertises as a matter of
         // course, so measuring against that alone calls a healthy stream starved
         // whenever the path also looks queueing. Falling back to it was tried
-        // and reverted; see `plans/v2/old/260903-review.md` under D1.
+        // and reverted.
         _ => false,
     };
 
@@ -802,11 +802,12 @@ mod tests {
     ///
     /// It is pinned here because the obvious fix makes things worse. Measuring
     /// against the catalog's advertised bitrate instead was tried, and it
-    /// downgrades healthy streams: an encoder sends well under what it
-    /// advertises by design, so any path that looks queueing for an unrelated
-    /// reason then reads as starved. `plans/v2/old/260903-review.md` D1 has the
-    /// measurement and `a_risen_baseline_round_trip_does_not_downgrade` in the
-    /// patchbay suite is what caught it.
+    /// downgrades healthy streams: openh264 was measured delivering about a
+    /// quarter of the top rung's declared figure over a clear link, so a
+    /// threshold of half the advertised rate is true of a stream with nothing
+    /// wrong with it, and any path that looks queueing for an unrelated reason
+    /// then reads as starved. `a_risen_baseline_round_trip_does_not_downgrade`
+    /// in the patchbay suite is what caught it.
     #[test]
     fn a_rung_never_seen_arriving_cleanly_is_not_downgraded_on_bandwidth() {
         let ranked = test_ranked();

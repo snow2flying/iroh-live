@@ -222,8 +222,10 @@ decoder is told to treat as too much buffered media, and setting it below the
 slack the clock is deliberately holding would throw away the very frames that
 slack exists to wait for. Measured end to end from a dev machine to a
 Raspberry Pi 4 the whole pipeline runs at about 900ms, so this flag moves a
-useful part of the delay but not most of it; `plans/v2/latency.md` accounts for
-the rest.
+useful part of the delay but not most of it. Most of the rest is the decoder:
+`--decoder v4l2`, which `auto` picks on that board, holds about 690ms of
+pictures where openh264 holds none. See
+[docs/architecture/media-stack.md](architecture/media-stack.md).
 
 ### `irl call`
 

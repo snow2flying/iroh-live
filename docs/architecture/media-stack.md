@@ -135,7 +135,7 @@ auto` picks there. The decoder holds about 690ms of pictures in its own queue,
 measured against a clock drawn into the picture, against 360ms for openh264 on
 the same Pi at a steady 30fps; the hardware path is for sparing the CPU, which a
 Pi Zero needs and a Pi 4 at these sizes does not, so `--decoder openh264` is the
-choice on a Pi 4 when delay matters. `plans/v2/latency.md` has the numbers.
+choice on a Pi 4 when delay matters.
 `MOQ_V4L2_ENCODER` and `MOQ_V4L2_DECODER` override the device
 probe when it picks the wrong node.
 

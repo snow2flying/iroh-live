@@ -248,14 +248,14 @@ pub struct LocalBroadcast {
 #[derive(Debug)]
 struct VideoPublish {
     renditions: Vec<String>,
-    _task: AbortOnDropHandle<()>,
+    task: video::PublishTask,
 }
 
 /// A running audio publish.
 #[derive(Debug)]
 struct AudioPublish {
     rendition: String,
-    _task: AudioTask,
+    task: AudioTask,
 }
 
 impl LocalBroadcast {
@@ -383,9 +383,25 @@ impl LocalBroadcast {
     }
 
     /// Ends the broadcast so subscribers see a clean close.
-    pub fn finish(mut self) {
-        self.video.lock().expect("poisoned").take();
-        self.audio.lock().expect("poisoned").take();
+    pub async fn finish(mut self) {
+        self.shutdown().await;
+    }
+
+    /// Stops every media task and cleanly finishes the broadcast in place.
+    pub async fn shutdown(&mut self) {
+        let video = self.video.lock().expect("poisoned").take();
+        let audio = self.audio.lock().expect("poisoned").take();
+        self.preview.lock().expect("poisoned").take();
+
+        if let Some(video) = video {
+            video.task.shutdown().await;
+        }
+        if let Some(audio) = audio {
+            audio.task.shutdown().await;
+        }
+        if let Err(err) = self.catalog.lock().expect("poisoned").finish() {
+            warn!(error = %err, "catalog did not finish cleanly");
+        }
         self.broadcast.finish();
     }
 }
@@ -451,7 +467,7 @@ impl VideoPublisher<'_> {
         *self.0.preview.lock().expect("poisoned") = previewable.then(|| Arc::new(preview_rx));
         *self.0.video.lock().expect("poisoned") = Some(VideoPublish {
             renditions: names,
-            _task: task,
+            task,
         });
         Ok(())
     }
@@ -506,10 +522,7 @@ impl AudioPublisher<'_> {
             source,
             options,
         );
-        *self.0.audio.lock().expect("poisoned") = Some(AudioPublish {
-            rendition,
-            _task: task,
-        });
+        *self.0.audio.lock().expect("poisoned") = Some(AudioPublish { rendition, task });
     }
 
     /// Stops publishing audio.
@@ -551,11 +564,27 @@ fn spawn_audio(
         AudioSource::Device(config) => AudioTask::Local(crate::local_task::spawn(
             "audio-publish",
             move |shutdown| async move {
-                let publish =
-                    moq_audio::encode::publish_capture(broadcast, catalog, config, options, clock);
+                let mut publication_options = moq_audio::encode::PublicationOptions::default();
+                publication_options.capture = config;
+                publication_options.encode = options;
+                publication_options.clock = clock;
+                let publication =
+                    moq_audio::encode::Publication::new(broadcast, catalog, publication_options);
+                let (publication, driver) = match publication {
+                    Ok(publication) => publication,
+                    Err(err) => {
+                        warn!(error = %err, "audio publish stopped");
+                        return;
+                    }
+                };
+                let publish = driver.run();
+                tokio::pin!(publish);
                 let result = tokio::select! {
-                    result = publish => result,
-                    _ = shutdown.cancelled() => return,
+                    result = &mut publish => result,
+                    _ = shutdown.cancelled() => {
+                        drop(publication);
+                        publish.await
+                    },
                 };
                 if let Err(err) = result {
                     warn!(error = %err, "audio publish stopped");
@@ -565,16 +594,20 @@ fn spawn_audio(
         // Application-produced PCM crosses threads by definition, so it stays on
         // the runtime the caller is already using.
         AudioSource::Frames { input, frames } => {
-            AudioTask::Shared(AbortOnDropHandle::new(n0_future::task::spawn(
+            let shutdown = tokio_util::sync::CancellationToken::new();
+            let token = shutdown.clone();
+            let task = AbortOnDropHandle::new(n0_future::task::spawn(
                 async move {
                     if let Err(err) =
-                        publish_audio_frames(broadcast, catalog, input, frames, options).await
+                        publish_audio_frames(broadcast, catalog, input, frames, options, token)
+                            .await
                     {
                         warn!(error = %err, "audio publish stopped");
                     }
                 }
                 .instrument(error_span!("audio-publish")),
-            )))
+            ));
+            AudioTask::Shared { shutdown, task }
         }
     }
 }
@@ -585,17 +618,28 @@ fn spawn_audio(
 /// ever read, which is the point: the handle exists so the publication lives
 /// exactly as long as the track that owns it.
 #[derive(derive_more::Debug)]
-#[expect(
-    dead_code,
-    reason = "each variant is held for its Drop, which is what stops the publication"
-)]
 enum AudioTask {
     /// A device publication, on its own thread.
     #[debug("Local")]
     Local(crate::local_task::LocalTask),
     /// A frame publication, on the caller's runtime.
     #[debug("Shared")]
-    Shared(AbortOnDropHandle<()>),
+    Shared {
+        shutdown: tokio_util::sync::CancellationToken,
+        task: AbortOnDropHandle<()>,
+    },
+}
+
+impl AudioTask {
+    async fn shutdown(self) {
+        match self {
+            Self::Local(task) => task.shutdown().await,
+            Self::Shared { shutdown, task } => {
+                shutdown.cancel();
+                let _ = task.await;
+            }
+        }
+    }
 }
 
 /// Publishes PCM the application produced, rather than a device's.
@@ -605,9 +649,15 @@ async fn publish_audio_frames(
     input: moq_audio::encode::Input,
     mut frames: BoxStream<moq_audio::Frame>,
     options: moq_audio::encode::Options,
+    shutdown: tokio_util::sync::CancellationToken,
 ) -> Result<(), moq_audio::Error> {
     let mut producer = moq_audio::encode::Producer::new(&mut broadcast, catalog, input, &options)?;
-    while let Some(frame) = frames.next().await {
+    loop {
+        let frame = tokio::select! {
+            frame = frames.next() => frame,
+            () = shutdown.cancelled() => None,
+        };
+        let Some(frame) = frame else { break };
         producer.write(&frame)?;
     }
     producer.finish()

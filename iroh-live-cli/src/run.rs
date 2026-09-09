@@ -316,7 +316,7 @@ async fn run_streams(live: &Live, config: &RunConfig) -> Result {
     }
 
     for broadcast in broadcasts {
-        broadcast.finish();
+        broadcast.finish().await;
     }
     for receiver in &receivers {
         receiver.sub.session().close(moq_net::Error::Cancel);

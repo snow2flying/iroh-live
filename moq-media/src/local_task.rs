@@ -40,6 +40,12 @@ impl Drop for LocalTask {
 }
 
 impl LocalTask {
+    /// Requests shutdown, then waits until the task has released its device.
+    pub async fn shutdown(mut self) {
+        self.shutdown.cancel();
+        self.joined().await;
+    }
+
     /// Waits until the task has finished and released its device.
     ///
     /// Returns immediately once it has, and on every later call.

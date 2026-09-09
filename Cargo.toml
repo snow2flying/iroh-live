@@ -29,15 +29,15 @@ iroh-gossip = "0.101.0"
 noq-proto = { version = "1", default-features = false }
 iroh-tickets = "1.0.0"
 iroh-smol-kv = { version = "0.4.0", default-features = false }
-hang = "0.20.10"
-moq-net = "0.2.18"
-moq-mux = "0.9.13"
+hang = "0.20.11"
+moq-net = "0.2.19"
+moq-mux = "0.9.14"
 # `aac` stays on: a broadcast that reached us through an RTMP or HLS gateway
 # carries AAC, and dropping its audio track is a silent failure.
-moq-audio = { version = "0.0.22", default-features = false, features = ["aac"] }
-moq-video = { version = "0.0.22", default-features = false }
-moq-relay = { version = "0.14.15", default-features = false }
-moq-native = { version = "0.19.16", default-features = false }
+moq-audio = { version = "0.0.23", default-features = false, features = ["aac"] }
+moq-video = { version = "0.0.23", default-features = false }
+moq-relay = { version = "0.14.16", default-features = false }
+moq-native = { version = "0.19.17", default-features = false }
 web-transport-iroh = "0.7.0"
 
 # UI. egui pins the wgpu major it links, and `moq_video::render` hands back a
@@ -78,26 +78,23 @@ mod_module_files = "deny"
 # upstreamed (Android MediaCodec, libcamera). Every version above matches what
 # `moq-dev/moq@main` publishes, so deleting this block is the whole revert once
 # those land in a release.
-# This branch depends on six unreleased moq changes: the public capture stream,
-# a catalog-extension-generic `publish_capture`, the two Android MediaCodec
-# commits, the lenient avc1 decode, and a public `broadcast::Consumer::demand`
-# (which `iroh-live-relay`'s pull mode reads to tell an unwatched pull from a
-# watched one). They live on `Frando/moq@iroh-live`, one commit per prospective
-# PR, and the branch is amended rather than added to as review moves them along.
-# `Cargo.lock` pins the exact revision, so a checkout builds what CI built even
-# after an amend.
+# This branch carries thirteen moq changes that are not in a release yet: four
+# fMP4 export fixes and the doc that explains their ordering, a decode test
+# against foreign bitstreams, four moq-video robustness fixes, the public
+# backend-name vocabulary and V4L2 mode listing, the live-edge decoder open,
+# and a moq-net fix that aborts subscriptions when a session shuts down. They
+# live on `Frando/moq@iroh-live-2`, one commit per prospective PR, rebuilt on
+# upstream `main` on 2026-09-09 with everything already merged dropped.
+# `git log --oneline main..iroh-live-2` on that fork is the list. `Cargo.lock`
+# pins the exact revision, so a checkout builds what CI built even after a
+# rebuild.
 #
 # Deleting this block is the whole fix once the commits land in a moq release.
 [patch.crates-io]
-hang = { git = "https://github.com/Frando/moq", branch = "iroh-live" }
-# moq-video's VAAPI decoder and re-tile need `moq_vaapi::{decode, vpp}`, neither
-# of which is in the released 0.0.3. A `[patch]` block only takes effect in the
-# top-level workspace, so moq patching this for its own builds does nothing here
-# and the entry has to be repeated.
-moq-vaapi = { git = "https://github.com/Frando/vaapi", branch = "iroh-live" }
-moq-audio = { git = "https://github.com/Frando/moq", branch = "iroh-live" }
-moq-mux = { git = "https://github.com/Frando/moq", branch = "iroh-live" }
-moq-native = { git = "https://github.com/Frando/moq", branch = "iroh-live" }
-moq-net = { git = "https://github.com/Frando/moq", branch = "iroh-live" }
-moq-relay = { git = "https://github.com/Frando/moq", branch = "iroh-live" }
-moq-video = { git = "https://github.com/Frando/moq", branch = "iroh-live" }
+hang = { git = "https://github.com/Frando/moq", branch = "iroh-live-2" }
+moq-audio = { git = "https://github.com/Frando/moq", branch = "iroh-live-2" }
+moq-mux = { git = "https://github.com/Frando/moq", branch = "iroh-live-2" }
+moq-native = { git = "https://github.com/Frando/moq", branch = "iroh-live-2" }
+moq-net = { git = "https://github.com/Frando/moq", branch = "iroh-live-2" }
+moq-relay = { git = "https://github.com/Frando/moq", branch = "iroh-live-2" }
+moq-video = { git = "https://github.com/Frando/moq", branch = "iroh-live-2" }

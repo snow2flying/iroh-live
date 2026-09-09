@@ -27,6 +27,7 @@ use n0_future::{
     boxed::BoxStream,
     task::{AbortOnDropHandle, JoinSet, spawn},
 };
+use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error_span, info, instrument, warn};
 
 use super::{CatalogProducer, PublishError, VideoRendition, VideoSource};
@@ -59,21 +60,40 @@ pub(super) struct Publish {
     pub preview: FrameSender<Arc<Frame>>,
 }
 
-/// Starts the publish task. Dropping the returned handle stops it and releases
-/// the capture device.
-pub(super) fn spawn_publish(publish: Publish) -> AbortOnDropHandle<()> {
+/// A video publication that can be asked to stop at a frame boundary.
+#[derive(Debug)]
+pub(super) struct PublishTask {
+    shutdown: CancellationToken,
+    task: AbortOnDropHandle<()>,
+}
+
+impl PublishTask {
+    pub(super) async fn shutdown(self) {
+        self.shutdown.cancel();
+        let _ = self.task.await;
+    }
+}
+
+/// Starts the publish task. Dropping the returned handle still stops it, while
+/// [`PublishTask::shutdown`] lets every encoder finish its track first.
+pub(super) fn spawn_publish(publish: Publish) -> PublishTask {
+    let shutdown = CancellationToken::new();
+    let token = shutdown.clone();
     let task = spawn(
         async move {
-            if let Err(err) = run(publish).await {
+            if let Err(err) = run(publish, token).await {
                 warn!(error = %err, "video publish stopped");
             }
         }
         .instrument(error_span!("video-publish")),
     );
-    AbortOnDropHandle::new(task)
+    PublishTask {
+        shutdown,
+        task: AbortOnDropHandle::new(task),
+    }
 }
 
-async fn run(publish: Publish) -> Result<(), PublishError> {
+async fn run(publish: Publish, shutdown: CancellationToken) -> Result<(), PublishError> {
     let Publish {
         broadcast,
         catalog,
@@ -110,7 +130,7 @@ async fn run(publish: Publish) -> Result<(), PublishError> {
                 .first()
                 .map(|rendition| rendition.name.clone())
                 .unwrap_or_else(|| "video".to_string());
-            publish_annexb(broadcast, catalog, bytes, name, stats).await
+            publish_annexb(broadcast, catalog, bytes, name, stats, shutdown).await
         }
         #[cfg(feature = "capture")]
         VideoSource::Capture(config) => {
@@ -169,7 +189,11 @@ async fn run(publish: Publish) -> Result<(), PublishError> {
             // The reader stopping before it opened anything now means only that
             // the source was replaced or dropped while it was still waiting for
             // the device: an open that fails is retried rather than reported.
-            let Ok((size, device_framerate, color)) = opened.await else {
+            let opened = tokio::select! {
+                opened = opened => opened,
+                () = shutdown.cancelled() => return Ok(()),
+            };
+            let Ok((size, device_framerate, color)) = opened else {
                 return Err(moq_video::Error::Unsupported(
                     "the video capture source was dropped before its device opened".into(),
                 )
@@ -191,7 +215,7 @@ async fn run(publish: Publish) -> Result<(), PublishError> {
             );
             fan_out(
                 broadcast, catalog, stats, renditions, preview, frames, size, framerate, color,
-                slot,
+                slot, shutdown,
             )
             .await
         }
@@ -206,7 +230,11 @@ async fn run(publish: Publish) -> Result<(), PublishError> {
             // `Ok` here left `--video rpicam:raw` silent about a camera that
             // would not open while `--video rpicam` said so, which is the same
             // camera and the same cause.
-            let Some(first) = frames.next().await else {
+            let first = tokio::select! {
+                first = frames.next() => first,
+                () = shutdown.cancelled() => return Ok(()),
+            };
+            let Some(first) = first else {
                 return Err(n0_error::e!(PublishError::EmptySource));
             };
             let size = first.size();
@@ -223,6 +251,7 @@ async fn run(publish: Publish) -> Result<(), PublishError> {
                 DEFAULT_FRAMERATE,
                 color,
                 slot,
+                shutdown,
             )
             .await
         }
@@ -245,6 +274,7 @@ async fn fan_out(
     framerate: u32,
     color: Option<moq_video::Color>,
     slot: Arc<tokio::sync::OwnedMutexGuard<()>>,
+    shutdown: CancellationToken,
 ) -> Result<(), PublishError> {
     let mut senders = Vec::with_capacity(renditions.len());
     let mut encoders = JoinSet::new();
@@ -317,6 +347,7 @@ async fn fan_out(
                 );
                 continue;
             }
+            () = shutdown.cancelled() => None,
         };
         let Some(frame) = frame else { break };
         // Reaching a frame at all means the source works; the warning has
@@ -462,6 +493,7 @@ async fn publish_annexb(
     mut bytes: BoxStream<bytes::Bytes>,
     name: String,
     stats: PublishStats,
+    shutdown: CancellationToken,
 ) -> Result<(), PublishError> {
     let track = broadcast.create_track(name.as_str(), Some(catalog.track_info()))?;
     let mut import =
@@ -471,7 +503,15 @@ async fn publish_annexb(
     info!(rendition = %name, "publishing pre-encoded video");
 
     let mut units = 0usize;
-    while let Some(chunk) = bytes.next().await {
+    loop {
+        let chunk = tokio::select! {
+            chunk = bytes.next() => chunk,
+            () = shutdown.cancelled() => {
+                import.finish()?;
+                return Ok(());
+            }
+        };
+        let Some(chunk) = chunk else { break };
         let frames = split.decode(&chunk, None)?;
         units += frames.len();
         import.decode(frames)?;

@@ -21,7 +21,7 @@ use iroh::{
 use moq_net::{AsPath, Origin, broadcast, origin};
 use n0_error::{AnyError, Result, e, stack_error};
 use n0_future::task::{AbortOnDropHandle, JoinSet, spawn};
-use tokio::sync::{broadcast as tokio_broadcast, mpsc, oneshot};
+use tokio::sync::{broadcast as tokio_broadcast, mpsc, oneshot, watch};
 use tokio_util::sync::CancellationToken;
 use tracing::{Instrument, debug, error, error_span, field, info, instrument, warn};
 
@@ -122,6 +122,7 @@ pub struct Moq {
     tx: mpsc::Sender<ActorMessage>,
     incoming_session_tx: tokio_broadcast::Sender<MoqSession>,
     shutdown_token: CancellationToken,
+    actor_done: watch::Receiver<bool>,
     origin: origin::Producer,
     _actor_handle: Arc<AbortOnDropHandle<()>>,
 }
@@ -170,10 +171,17 @@ impl Moq {
         let origin = Origin::random().produce();
         let actor = Actor::new(endpoint, incoming_session_tx.clone(), origin.clone());
         let shutdown_token = actor.shutdown_token.clone();
-        let actor_task =
-            spawn(async move { actor.run(rx).await }.instrument(error_span!("LiveActor")));
+        let (actor_done_tx, actor_done) = watch::channel(false);
+        let actor_task = spawn(
+            async move {
+                actor.run(rx).await;
+                let _ = actor_done_tx.send(true);
+            }
+            .instrument(error_span!("LiveActor")),
+        );
         Self {
             shutdown_token,
+            actor_done,
             tx,
             incoming_session_tx,
             origin,
@@ -266,12 +274,16 @@ impl Moq {
     /// Shuts down the transport.
     ///
     /// Every session closes, the actor stops, and [`connect`](Self::connect)
-    /// fails from here on. Returns as soon as the shutdown is asked for: the
-    /// closes are flushed to peers in the background, under a few seconds'
-    /// grace, so a caller that needs the sockets gone waits on
-    /// [`Endpoint::close`](iroh::Endpoint::close) rather than on this.
-    pub fn shutdown(&self) {
+    /// fails from here on. Waits for the actor to close and drain every session,
+    /// so it is safe to close the endpoint after this returns.
+    pub async fn shutdown(&self) {
         self.shutdown_token.cancel();
+        let mut done = self.actor_done.clone();
+        while !*done.borrow_and_update() {
+            if done.changed().await.is_err() {
+                break;
+            }
+        }
     }
 }
 

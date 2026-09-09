@@ -61,8 +61,9 @@ want for live playback with audio.
 largest delay a subscriber adds on its own. It is also the one field of this
 policy that takes effect immediately rather than on the next decoder built,
 because the clock it configures belongs to the broadcast and outlives any one
-track. `irl watch --latency` is the CLI over it; `plans/v2/latency.md` measures
-where the rest of the pipeline's delay goes.
+track. `irl watch --latency` is the CLI over it. `iroh-live/tests/latency.rs` measures
+what the rest of the pipeline costs, with publisher and subscriber on one clock:
+84ms with no playout hold, 203ms under the default policy.
 
 `max_latency: Duration` becomes `latency_max` on `moq_video::decode::Config` and
 `moq_audio::decode::Config`, which is where upstream decides how much buffered

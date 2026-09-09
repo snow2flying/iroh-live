@@ -274,7 +274,7 @@ mod window {
                 peer.view.shutdown();
                 peer.sub.session().close(moq_net::Error::Cancel);
             }
-            crate::ui::shutdown_live_blocking(&self.live);
+            crate::ui::shutdown_publish_blocking(&self.live, &mut self.broadcast);
         }
     }
 

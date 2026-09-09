@@ -52,7 +52,7 @@ impl Node {
     }
 
     async fn shutdown(self) {
-        self.moq.shutdown();
+        self.moq.shutdown().await;
         self.router.shutdown().await.expect("router task panicked");
         self.endpoint.close().await;
     }
@@ -159,7 +159,7 @@ async fn shutdown_closes_sessions_and_refuses_new_ones() {
         .expect("timed out dialling")
         .expect("failed to dial");
 
-    alice.moq.shutdown();
+    alice.moq.shutdown().await;
 
     tokio::time::timeout(TIMEOUT, session.closed())
         .await

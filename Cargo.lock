@@ -585,26 +585,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "audio-core"
-version = "0.2.1"
+name = "audio-codec-algorithms"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f93ebbf82d06013f4c41fe71303feb980cddd78496d904d06be627972de51a24"
+checksum = "1254ebf6529f3763c491acfb5ab6e960809e3c75a38584cc664f8c5667fb7107"
 
 [[package]]
 name = "audioadapter"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c75c3943c6c7279bb25a449a8d1727480730ab2efd7b6fd5d6ca51927096e6e4"
-dependencies = [
- "audio-core",
- "num-traits",
-]
+checksum = "d1292ef9edf681b7426ed089004b021a42896492f58bd0c909ad44e5faec9ac4"
 
 [[package]]
 name = "audioadapter-buffers"
-version = "4.0.0"
+version = "5.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ece3390b6eb40379094843a1da5aaccc34bc0d85a8cbf68d09fe092fee6de29e"
+checksum = "46289a81a3bfa26d0f8b2415f8ca9decde9a66308a150568af5c102381b3c8ce"
 dependencies = [
  "audioadapter",
  "audioadapter-sample",
@@ -613,11 +609,11 @@ dependencies = [
 
 [[package]]
 name = "audioadapter-sample"
-version = "4.0.0"
+version = "5.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1592f90413568e259413c21a41a3d571feb1774255c209e7966d98f9db708c90"
+checksum = "5258faecf4edbe35ec483bda9b1f7438e6b391891819269c6b5461aeaa0e8d7d"
 dependencies = [
- "audio-core",
+ "audio-codec-algorithms",
  "num-traits",
 ]
 
@@ -2096,14 +2092,14 @@ dependencies = [
 
 [[package]]
 name = "dns-lookup"
-version = "3.0.1"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e39034cee21a2f5bbb66ba0e3689819c4bb5d00382a282006e802a7ffa6c41d"
+checksum = "6120e7e5dcd1c90098e349def389e2797377cdbe6b465ad8fdd115c0c99d5cf2"
 dependencies = [
  "cfg-if",
  "libc",
  "socket2",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2196,10 +2192,11 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "ebml-iterable"
-version = "0.6.3"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b5173ac3752f08b526a6991509615e1a345b221ec3c58c7633433e8c9582312"
+checksum = "152f8f4a13024011b26457b8b21040d9a9eb1222e693993ef037db391cd0c004"
 dependencies = [
+ "bytes",
  "ebml-iterable-specification",
  "ebml-iterable-specification-derive",
  "futures",
@@ -2843,9 +2840,9 @@ checksum = "5baebc0774151f905a1a2cc41989300b1e6fbb29aff0ceffa1064fdd3088d582"
 
 [[package]]
 name = "fixed-resample"
-version = "0.12.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3505607cc0adc388ce98f59707477c02fbd05a2fa0c1b8c4cf42b71a3cb9c34"
+checksum = "4d1870ecdc0221202c6fb0c8205a6a38878231f13fc9d389c1d9f2b9d2906bd3"
 dependencies = [
  "audioadapter",
  "audioadapter-buffers",
@@ -3506,8 +3503,8 @@ dependencies = [
 
 [[package]]
 name = "hang"
-version = "0.20.10"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+version = "0.20.11"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "bytes",
  "derive_more",
@@ -5037,8 +5034,8 @@ dependencies = [
 
 [[package]]
 name = "kio"
-version = "0.5.7"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+version = "0.5.8"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "loom",
  "smallvec",
@@ -5443,8 +5440,8 @@ dependencies = [
 
 [[package]]
 name = "moq-audio"
-version = "0.0.22"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+version = "0.0.23"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "block2 0.6.2",
  "bytes",
@@ -5452,7 +5449,7 @@ dependencies = [
  "dispatch2",
  "fixed-resample",
  "hang",
- "kio 0.5.7",
+ "kio 0.5.8",
  "moq-mux",
  "moq-net",
  "objc2 0.6.4",
@@ -5476,7 +5473,7 @@ dependencies = [
 [[package]]
 name = "moq-flate"
 version = "0.1.2"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "bytes",
  "flate2",
@@ -5485,12 +5482,12 @@ dependencies = [
 
 [[package]]
 name = "moq-json"
-version = "0.3.9"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+version = "0.3.10"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "bytes",
  "json-patch",
- "kio 0.5.7",
+ "kio 0.5.8",
  "moq-flate",
  "moq-net",
  "serde",
@@ -5502,8 +5499,8 @@ dependencies = [
 
 [[package]]
 name = "moq-loc"
-version = "0.2.5"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+version = "0.2.6"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "bytes",
  "moq-net",
@@ -5568,7 +5565,7 @@ dependencies = [
 [[package]]
 name = "moq-msf"
 version = "0.4.2"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "serde",
  "serde_json",
@@ -5577,15 +5574,15 @@ dependencies = [
 
 [[package]]
 name = "moq-mux"
-version = "0.9.13"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+version = "0.9.14"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
  "bytes",
  "h264-parser",
  "hang",
- "kio 0.5.7",
+ "kio 0.5.8",
  "memchr",
  "moq-json",
  "moq-loc",
@@ -5609,8 +5606,8 @@ dependencies = [
 
 [[package]]
 name = "moq-native"
-version = "0.19.16"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+version = "0.19.17"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "clap",
  "dns-lookup",
@@ -5621,6 +5618,7 @@ dependencies = [
  "jni 0.22.4",
  "libc",
  "moq-net",
+ "noq",
  "noq-proto",
  "notify",
  "qmux",
@@ -5650,13 +5648,13 @@ dependencies = [
 
 [[package]]
 name = "moq-net"
-version = "0.2.18"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+version = "0.2.19"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "arrayvec",
  "bytes",
  "futures",
- "kio 0.5.7",
+ "kio 0.5.8",
  "num_enum",
  "rand 0.10.1",
  "serde",
@@ -5670,7 +5668,7 @@ dependencies = [
 [[package]]
 name = "moq-nvenc"
 version = "0.0.4"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "cudarc",
  "lazy_static",
@@ -5679,8 +5677,8 @@ dependencies = [
 
 [[package]]
 name = "moq-relay"
-version = "0.14.15"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+version = "0.14.16"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "anyhow",
  "axum",
@@ -5720,8 +5718,8 @@ dependencies = [
 
 [[package]]
 name = "moq-stats"
-version = "0.1.8"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+version = "0.1.9"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "moq-json",
  "moq-net",
@@ -5735,7 +5733,7 @@ dependencies = [
 [[package]]
 name = "moq-token"
 version = "0.7.3"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "aws-lc-rs",
  "base64 0.23.1",
@@ -5752,8 +5750,9 @@ dependencies = [
 
 [[package]]
 name = "moq-vaapi"
-version = "0.0.3"
-source = "git+https://github.com/Frando/vaapi?branch=iroh-live#4c618d1ff129fc421400d98dc3efa076eb3de627"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "091df44de531fc6e5346da91f2dd7d1ebbb4a2e741ddadaf49aef017e659cb57"
 dependencies = [
  "anyhow",
  "bindgen 0.70.1",
@@ -5766,8 +5765,8 @@ dependencies = [
 
 [[package]]
 name = "moq-video"
-version = "0.0.22"
-source = "git+https://github.com/Frando/moq?branch=iroh-live#6b7620ad875a4d48532ff2352839c7cc8dd10f4c"
+version = "0.0.23"
+source = "git+https://github.com/Frando/moq?branch=iroh-live-2#d2f14242418fd577068dbaacc923dca64e04bdf7"
 dependencies = [
  "anyhow",
  "ashpd",
@@ -8375,9 +8374,9 @@ dependencies = [
 
 [[package]]
 name = "rubato"
-version = "4.0.0"
+version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f57c655d11e929f05a8663b323ff553f8d9773be05dfdc087795955bedeb8d92"
+checksum = "a7cb1ffaf8738df50aab642a7f6465df81c6ba9e2818268053487165298114be"
 dependencies = [
  "audioadapter",
  "audioadapter-buffers",
@@ -10932,9 +10931,9 @@ dependencies = [
 
 [[package]]
 name = "webm-iterable"
-version = "0.6.4"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd9fbf173b4b38f2f8bbb0082a0d4cb21f263a70811f5fccb1663c421c66d9f9"
+checksum = "2b1f0c637f1c2b46d58a1b42b150135f8a31b024bfdcd56cc82febfbb20ba4c0"
 dependencies = [
  "ebml-iterable",
 ]

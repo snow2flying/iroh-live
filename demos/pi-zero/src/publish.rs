@@ -141,6 +141,7 @@ pub(crate) async fn cmd_publish(opts: PublishOpts) -> n0_error::Result {
         }
     }
 
+    broadcast.finish().await;
     live.shutdown().await;
 
     Ok(())

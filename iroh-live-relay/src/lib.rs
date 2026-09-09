@@ -52,7 +52,7 @@ pub async fn run(config: RelayConfig) -> anyhow::Result<()> {
     server_config.backend = Some(moq_native::QuicBackend::Noq);
     server_config.quic.max_streams = Some(moq_relay::DEFAULT_MAX_STREAMS);
     // Self-signed TLS for dev mode. ACME/Let's Encrypt support is planned
-    // but not yet implemented (see plans/relay-browser.md).
+    // but not yet implemented.
     server_config.tls.generate = vec!["localhost".to_string()];
 
     let mut client_config = moq_native::ClientConfig::default();

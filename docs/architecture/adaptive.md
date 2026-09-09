@@ -151,7 +151,7 @@ promise, and openh264 sends about a quarter to a half of what the rendition
 declares as a matter of course, so a shortfall against it is true of a healthy
 stream. Any path that looks queueing for an unrelated reason, a relay fallback
 or a Wi-Fi to cellular handoff, then steps the ladder down for no reason. See
-`plans/v2/260903-review.md` under D1.
+`plans/v2/old/260903-review.md` under D1.
 
 **Queueing** is `rtt` at `rtt_queueing_ratio` (2x) of `min_rtt` and at least
 `rtt_queueing_floor` (25 ms) above it, corroborated by `queueing_samples` (2)

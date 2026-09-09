@@ -76,9 +76,23 @@ pub async fn run(config: RelayConfig) -> anyhow::Result<()> {
             .as_bytes()
             .to_vec(),
     );
-    let iroh_endpoint = iroh::Endpoint::builder(presets::N0)
+    // mDNS, for the same reason `irl` takes it: a ticket names an endpoint id and
+    // no addresses, and pull mode's whole job is turning one of those into a
+    // connection. Pkarr and DNS cover a publisher with internet, and they take a
+    // few seconds to propagate after it starts; mDNS covers the publisher on this
+    // machine or this LAN, and covers it immediately. Without it the relay was the
+    // one component that could not resolve a ticket `irl watch` resolves fine,
+    // and a pull of a just-started local publisher failed with "No addressing
+    // information available" until pkarr caught up.
+    //
+    // `Announce` rather than `LookupOnly`: the relay accepts sessions, and a
+    // publisher reaches it by endpoint id, so it has an address worth publishing.
+    let builder = iroh::Endpoint::builder(presets::N0)
+        .transport_config(iroh_live::util::transport_config())
         .secret_key(iroh_secret)
-        .alpns(alpns)
+        .alpns(alpns);
+    let iroh_endpoint = iroh_live::util::with_mdns(builder, iroh_live::util::LanPresence::Announce)
+        .await
         .bind()
         .await?;
 
@@ -146,9 +160,24 @@ pub async fn run(config: RelayConfig) -> anyhow::Result<()> {
 
     // Machine-parseable lines (used by e2e test fixtures).
     println!("http port: {http_port}");
-    // Human-friendly clickable URLs.
+    // The one address a person types. `http` and not `https` on purpose: this
+    // listener speaks plain HTTP, and the QUIC port next to it carries
+    // WebTransport over HTTP/3 rather than anything a browser will open from
+    // the address bar. Typing `https://localhost:{http_port}` reaches this
+    // listener over TCP and fails inside TLS ("record that exceeded the maximum
+    // permissible length"), which is the browser reading `HTTP/1.1 400` as a
+    // TLS record.
+    //
+    // The self-signed certificate needs no exception either. The page fetches
+    // its fingerprint from `/certificate.sha256` and pins it when it opens the
+    // WebTransport session, so the browser never prompts.
     println!("iroh-live relay listening at http://localhost:{http_port}");
-    println!("iroh-live relay listening at https://localhost:{quic_port}");
+    if quic_port == http_port {
+        println!("  WebTransport on UDP {quic_port}; the page above connects to it for you");
+    } else {
+        println!("  WebTransport on UDP {quic_port}, web viewer on TCP {http_port}");
+    }
+    println!("  needs a browser with WebTransport: Chromium, or Firefox 153+");
 
     let _http_task = AbortOnDropHandle::new(tokio::spawn(async move {
         if let Err(err) = axum::serve(http_listener, static_router).await {
@@ -164,8 +193,12 @@ pub async fn run(config: RelayConfig) -> anyhow::Result<()> {
         // A name that happens to parse as a ticket is a pull request; anything
         // else is an ordinary broadcast name that the cluster already knows or
         // does not.
-        let ticket = extract_name_from_url(&request)
-            .and_then(|name| name.parse::<iroh_live::ticket::LiveTicket>().ok());
+        let ticket = extract_name_from_url(&request).and_then(|name| {
+            // The requested spelling travels with the ticket: it is the path the
+            // subscriber will be announced under, and the two have to agree.
+            let ticket = name.parse::<iroh_live::ticket::LiveTicket>().ok()?;
+            Some((name, ticket))
+        });
         debug!(conn_id, %transport, pull = ticket.is_some(), "accepted connection");
 
         let pull_state = pull_state.clone();
@@ -186,9 +219,9 @@ pub async fn run(config: RelayConfig) -> anyhow::Result<()> {
             // connection: dropping the handle drops the guard whether the pull
             // finished or not, which is what tells the pull that this session
             // has stopped wanting the broadcast.
-            let _pull = ticket.map(|ticket| {
+            let _pull = ticket.map(|(name, ticket)| {
                 AbortOnDropHandle::new(tokio::spawn(async move {
-                    match pull_state.pull(&ticket).await {
+                    match pull_state.pull(&name, &ticket).await {
                         Ok(guard) => Some(guard),
                         Err(err) => {
                             warn!(%err, "pull failed for the ticket in the url");
@@ -242,14 +275,38 @@ impl RelayServer {
     fn iroh_secret_key(&self) -> anyhow::Result<SecretKey> {
         let path = self.iroh_secret_key_path();
         if path.try_exists()? {
-            let key = std::fs::read(&path)?;
-            return Ok(SecretKey::from_bytes((&key[..]).try_into()?));
+            let stored = std::fs::read(&path)?;
+            return read_secret_key(&stored).map_err(|err| {
+                anyhow::anyhow!(
+                    "{} holds {} bytes that are not an iroh secret key ({err}). Delete it to \
+                     start over, which gives this relay a new endpoint id and invalidates \
+                     every ticket that names the old one.",
+                    path.display(),
+                    stored.len(),
+                )
+            });
         }
         let key = SecretKey::generate();
         write_private(&path, &key.to_bytes())?;
         info!(path = %path.display(), "generated the relay's iroh identity");
         Ok(key)
     }
+}
+
+/// Reads a stored iroh secret key, in either form the relay has written.
+///
+/// Thirty-two raw bytes is what it writes now. Older builds wrote the same key
+/// as sixty-four lowercase hex characters, which is also what `IROH_SECRET`
+/// takes, and those files are still out there: the identity is the whole point
+/// of the file, so refusing to read one renames the relay and strands every
+/// ticket anyone is holding.
+fn read_secret_key(stored: &[u8]) -> anyhow::Result<SecretKey> {
+    if let Ok(bytes) = <&[u8; 32]>::try_from(stored) {
+        return Ok(SecretKey::from_bytes(bytes));
+    }
+    let text = std::str::from_utf8(stored)
+        .map_err(|_| anyhow::anyhow!("not 32 bytes, and not text either"))?;
+    Ok(text.trim().parse()?)
 }
 
 /// Writes `contents` to `path`, readable by this user alone.
@@ -320,5 +377,36 @@ fn mime_from_path(path: &str) -> &'static str {
         Some("png") => "image/png",
         Some("ico") => "image/x-icon",
         _ => "application/octet-stream",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The relay wrote its identity as hex before it wrote raw bytes, and a
+    /// file from either build has to open the same relay: the endpoint id is
+    /// what every ticket names.
+    #[test]
+    fn a_stored_key_reads_back_in_either_form() {
+        let key = SecretKey::generate();
+        let raw = key.to_bytes();
+        let hex = data_encoding::HEXLOWER.encode(&raw);
+
+        assert_eq!(read_secret_key(&raw).unwrap().to_bytes(), raw);
+        assert_eq!(read_secret_key(hex.as_bytes()).unwrap().to_bytes(), raw);
+        // Written by an editor, or by a shell redirect that added a newline.
+        let padded = format!("{hex}\n");
+        assert_eq!(read_secret_key(padded.as_bytes()).unwrap().to_bytes(), raw);
+    }
+
+    /// A file that is neither is an error rather than a reason to generate a
+    /// new identity over the top of it.
+    #[test]
+    fn a_file_that_is_not_a_key_is_refused() {
+        assert!(read_secret_key(b"").is_err());
+        assert!(read_secret_key(b"nowhere near a key").is_err());
+        // The right length for hex, and not hex.
+        assert!(read_secret_key(&[b'z'; 64]).is_err());
     }
 }
